@@ -12,7 +12,7 @@
         #matrix-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.3; }
         .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2)); background-size: 100% 4px; pointer-events: none; z-index: 10; }
         .dashboard-container { width: 90%; max-width: 400px; background: var(--panel-bg); border: 1px solid var(--neon-green); border-radius: 12px; padding: 20px; box-shadow: 0 0 20px rgba(0, 255, 65, 0.2); backdrop-filter: blur(10px); z-index: 2; }
-        .glitch { font-size: 28px; font-weight: bold; text-transform: uppercase; position: relative; text-shadow: 0 0 10px var(--neon-green); color: var(--neon-green); text-align: center; margin-bottom: 5px; letter-spacing: 2px; }
+        .glitch { font-size: 28px; font-weight: bold; text-transform: uppercase; text-shadow: 0 0 10px var(--neon-green); color: var(--neon-green); text-align: center; margin-bottom: 5px; letter-spacing: 2px; }
         .subtitle { text-align: center; color: var(--neon-blue); font-size: 12px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px; }
         .btn-group { display: flex; flex-direction: column; gap: 15px; }
         .cyber-btn { background: transparent; border: 1px solid var(--neon-blue); color: var(--neon-blue); padding: 15px; font-size: 14px; font-weight: bold; font-family: inherit; text-transform: uppercase; cursor: pointer; transition: all 0.3s; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
@@ -31,17 +31,16 @@
         <div class="glitch">LUMINA V8</div>
         <div class="subtitle">Apex Predator Protocol</div>
         <div class="btn-group">
-            <button class="cyber-btn" onclick="sendAction('status')"><span>System Stats</span><span>📊</span></button>
-            <button class="cyber-btn" onclick="sendAction('plugins')"><span>Plugin Manager</span><span>🧩</span></button>
-            <button class="cyber-btn" onclick="sendAction('terminal')"><span>Terminal Mode</span><span>💻</span></button>
+            <button class="cyber-btn" onclick="selectAction('status')"><span>System Stats</span><span>📊</span></button>
+            <button class="cyber-btn" onclick="selectAction('plugins')"><span>Plugin Manager</span><span>🧩</span></button>
+            <button class="cyber-btn" onclick="selectAction('terminal')"><span>Terminal Mode</span><span>💻</span></button>
         </div>
         <div class="terminal-window">
-            <div class="terminal-text" id="output">root@lumina:~# Waiting<span class="cursor"></span></div>
+            <div class="terminal-text" id="output">root@lumina:~# Select a command<span class="cursor"></span></div>
         </div>
     </div>
 
     <script>
-        // Matrix Rain
         const canvas = document.getElementById('matrix-canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
@@ -60,22 +59,30 @@
         }
         setInterval(drawMatrix, 35);
 
-        // Telegram App Logic
         let tg = window.Telegram.WebApp;
-        tg.expand(); tg.ready();
+        tg.expand(); 
+        tg.ready();
 
-        function sendAction(action) {
+        let selectedAction = null;
+
+        function selectAction(action) {
+            selectedAction = action;
             let out = document.getElementById('output');
-            out.innerHTML = "> Sending: " + action + "...<span class='cursor'></span>";
+            out.innerHTML = "> Selected: " + action + "\n> Click CONFIRM below to send.<span class='cursor'></span>";
             
-            // Alert dikhega confirm karne ke liye
-            alert("Button dabaya: " + action + "\nData bhej raha hoon...");
-            
-            tg.sendData(JSON.stringify({ action: action }));
-            
-            // Close hone se pehle 2 second ka time diya hai
-            setTimeout(() => { tg.close(); }, 2000);
+            // Telegram ka Main Button dikhao
+            tg.MainButton.setText("CONFIRM " + action.toUpperCase());
+            tg.MainButton.show();
         }
+
+        // Jab Main Button dabaya jaye
+        tg.MainButton.onClick(function() {
+            if (selectedAction) {
+                tg.MainButton.setText("SENDING...");
+                tg.sendData(JSON.stringify({ action: selectedAction }));
+                setTimeout(() => { tg.close(); }, 500);
+            }
+        });
     </script>
 </body>
 </html>
