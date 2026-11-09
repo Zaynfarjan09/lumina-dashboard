@@ -17,10 +17,15 @@
         .btn-group { display: flex; flex-direction: column; gap: 15px; }
         .cyber-btn { background: transparent; border: 1px solid var(--neon-blue); color: var(--neon-blue); padding: 15px; font-size: 14px; font-weight: bold; font-family: inherit; text-transform: uppercase; cursor: pointer; transition: all 0.3s; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
         .cyber-btn:active { background: rgba(0, 243, 255, 0.1); box-shadow: 0 0 15px var(--neon-blue); transform: scale(0.98); }
+        
+        /* 🔥 Naya Input Box Terminal ke liye */
+        .input-group { margin-top: 15px; display: flex; gap: 10px; }
+        .cyber-input { flex: 1; background: #000; border: 1px solid var(--neon-blue); color: var(--neon-green); padding: 10px; font-family: inherit; font-size: 14px; outline: none; }
+        .cyber-input::placeholder { color: rgba(0, 243, 255, 0.5); }
+        .send-btn { background: var(--neon-blue); color: #000; border: none; padding: 10px 15px; font-weight: bold; cursor: pointer; }
+
         .terminal-window { margin-top: 25px; background: #000; border: 1px solid #333; border-radius: 6px; padding: 10px; height: 100px; overflow-y: auto; font-size: 12px; color: #ccc; }
         .terminal-text { font-family: monospace; white-space: pre-wrap; }
-        .cursor { display: inline-block; width: 8px; height: 14px; background-color: var(--neon-green); animation: blink 1s step-end infinite; vertical-align: middle; margin-left: 2px; }
-        @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
@@ -30,13 +35,20 @@
     <div class="dashboard-container">
         <div class="glitch">LUMINA V8</div>
         <div class="subtitle">Apex Predator Protocol</div>
+        
         <div class="btn-group">
             <button class="cyber-btn" onclick="selectAction('status')"><span>System Stats</span><span>📊</span></button>
             <button class="cyber-btn" onclick="selectAction('plugins')"><span>Plugin Manager</span><span>🧩</span></button>
-            <button class="cyber-btn" onclick="selectAction('terminal')"><span>Terminal Mode</span><span>💻</span></button>
         </div>
+
+        <!-- 🔥 Naya Terminal Input Area -->
+        <div class="input-group">
+            <input type="text" id="terminalInput" class="cyber-input" placeholder="Enter shell command...">
+            <button class="send-btn" onclick="sendTerminal()">RUN</button>
+        </div>
+
         <div class="terminal-window">
-            <div class="terminal-text" id="output">root@lumina:~# Select a command<span class="cursor"></span></div>
+            <div class="terminal-text" id="output">root@lumina:~# Ready for input...</div>
         </div>
     </div>
 
@@ -60,25 +72,38 @@
         setInterval(drawMatrix, 35);
 
         let tg = window.Telegram.WebApp;
-        tg.expand(); 
-        tg.ready();
-
+        tg.expand(); tg.ready();
         let selectedAction = null;
 
         function selectAction(action) {
             selectedAction = action;
             let out = document.getElementById('output');
-            out.innerHTML = "> Selected: " + action + "\n> Click CONFIRM below to send.<span class='cursor'></span>";
-            
-            // Telegram ka Main Button dikhao
+            out.innerHTML = "> Selected: " + action + "\n> Click CONFIRM below to send.";
             tg.MainButton.setText("CONFIRM " + action.toUpperCase());
             tg.MainButton.show();
         }
 
-        // Jab Main Button dabaya jaye
+        // 🔥 Terminal Command Send
+        function sendTerminal() {
+            let cmd = document.getElementById('terminalInput').value;
+            if (!cmd) return;
+            
+            let out = document.getElementById('output');
+            out.innerHTML = "> Sending command: " + cmd + "...";
+            
+            tg.MainButton.setText("SEND COMMAND");
+            tg.MainButton.show();
+            
+            selectedAction = "terminal";
+            
+            tg.MainButton.onClick(function() {
+                tg.sendData(JSON.stringify({ action: "terminal", cmd: cmd }));
+                setTimeout(() => { tg.close(); }, 500);
+            });
+        }
+
         tg.MainButton.onClick(function() {
-            if (selectedAction) {
-                tg.MainButton.setText("SENDING...");
+            if (selectedAction && selectedAction !== "terminal") {
                 tg.sendData(JSON.stringify({ action: selectedAction }));
                 setTimeout(() => { tg.close(); }, 500);
             }
