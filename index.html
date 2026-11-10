@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lumina V8</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- 🔥 8D Graph Library (3D WebGL) -->
-    <script src="//unpkg.com/3d-force-graph"></script>
+    <!-- Vis.js for 2D Reliable Graph -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
         :root { --neon-green: #00ff41; --neon-blue: #00f3ff; --dark-bg: #050505; --panel-bg: rgba(13, 17, 23, 0.85); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -25,8 +25,9 @@
         .send-btn { background: var(--neon-blue); color: #000; border: none; padding: 10px 15px; font-weight: bold; cursor: pointer; }
         .terminal-window { margin-top: 25px; background: #000; border: 1px solid #333; border-radius: 6px; padding: 10px; height: 100px; overflow-y: auto; font-size: 12px; color: #ccc; }
         .terminal-text { font-family: monospace; white-space: pre-wrap; }
-        /* 3D Graph Container */
-        #network-container { display: block; width: 100%; height: 400px; background: #000; border: 1px solid var(--neon-green); border-radius: 6px; margin-top: 20px; overflow: hidden; position: relative; }
+        
+        /* 8D Cyberpunk Graph Container */
+        #network-container { display: block; width: 100%; height: 400px; background: radial-gradient(circle at center, #0a1c0e 0%, #000000 100%); border: 1px solid var(--neon-green); border-radius: 6px; margin-top: 20px; box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.2); }
         .back-btn { display: block; background: transparent; border: 1px dashed var(--neon-blue); color: var(--neon-blue); margin-top: 10px; width: 100%; padding: 10px; cursor: pointer; font-family: inherit;}
         .back-btn:active { background: rgba(0, 243, 255, 0.1); }
     </style>
@@ -73,22 +74,25 @@
             }
         }
         setInterval(drawMatrix, 35);
+        
         let tg = window.Telegram.WebApp;
         tg.expand(); tg.ready();
         let selectedAction = null;
-        let graph3D = null;
+        let network = null;
 
         async function showGraphPanel() {
             document.getElementById('main-panel').style.display = 'none';
             document.getElementById('graph-panel').style.display = 'block';
+            
             const urlParams = new URLSearchParams(window.location.search);
             const target = urlParams.get('target');
             const b64Data = urlParams.get('data');
+            
             if(target) document.getElementById('graph-title').innerText = `OSINT: ${target}`;
             
             if (b64Data) {
                 try {
-                    // Decompress Data from Zlib Base64
+                    // Zlib Decompress
                     const binaryString = atob(b64Data.replace(/-/g, '+').replace(/_/g, '/'));
                     const bytes = new Uint8Array(binaryString.length);
                     for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
@@ -98,13 +102,16 @@
                     const text = await new Response(decompressedStream).text();
                     const graphData = JSON.parse(text);
                     
-                    drawRealGraph3D(graphData);
+                    // Format for Vis.js
+                    const nodes = new vis.DataSet(graphData.nodes);
+                    const edges = new vis.DataSet(graphData.edges);
+                    drawGraph(nodes, edges);
                 } catch(e) {
                     console.error("Decompress failed", e);
-                    drawMockGraph3D(); 
+                    drawMockGraph(); 
                 }
             } else {
-                drawMockGraph3D();
+                drawMockGraph();
             }
         }
 
@@ -113,48 +120,49 @@
             document.getElementById('graph-panel').style.display = 'none';
         }
 
-        function drawRealGraph3D(graphData) {
-            document.getElementById('network-container').innerHTML = '';
+        function drawGraph(nodesData, edgesData) {
+            var container = document.getElementById('network-container');
+            var data = { nodes: nodesData, edges: edgesData };
             
-            // Convert edges to links for 3d-force-graph
-            graphData.links = graphData.edges.map(e => ({ source: e.from, target: e.to, label: e.label }));
+            // 🔥 8D CYBERPUNK STYLING
+            var options = {
+                nodes: {
+                    shape: 'dot',
+                    size: 18,
+                    font: { size: 12, color: '#ffffff', face: 'monospace', strokeWidth: 2, strokeColor: '#000000' },
+                    borderWidth: 3,
+                    shadow: { enabled: true, color: 'rgba(0, 255, 65, 0.8)', size: 15, x: 0, y: 0 }
+                },
+                edges: {
+                    arrows: { to: { enabled: true, scaleFactor: 1.2 } },
+                    color: { color: 'rgba(0, 243, 255, 0.6)', highlight: '#00ff41' },
+                    font: { size: 10, color: '#00ff41', face: 'monospace', align: 'middle', background: '#000' },
+                    width: 2,
+                    smooth: { type: 'curvedCW', roundness: 0.3 } // 3D curved look
+                },
+                physics: {
+                    barnesHut: { gravitationalConstant: -4000, centralGravity: 0.2, springLength: 200, springConstant: 0.05 },
+                    stabilization: { iterations: 200 }
+                },
+                interaction: { hover: true, tooltipDelay: 200 }
+            };
             
-            // Add names for node labels
-            graphData.nodes.forEach(n => { n.name = n.label; });
-
-            graph3D = ForceGraph3D()(document.getElementById('network-container'))
-                .graphData(graphData)
-                .nodeLabel('name')
-                .nodeAutoColorBy('group')
-                .linkDirectionalArrowLength(4)
-                .linkDirectionalArrowRelPos(1)
-                .linkLabel('label')
-                .backgroundColor('#000000')
-                .nodeRelSize(5)
-                .width(document.getElementById('network-container').clientWidth)
-                .height(400);
-                
-            // Add some visual 8D flair (glowing sprites)
-            graph3D.nodeThreeObject(node => {
-                const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ color: node.color ? node.color.border : 0x00ff41 }));
-                sprite.scale.set(12, 12, 1);
-                return sprite;
-            });
+            if(network) network.destroy();
+            network = new vis.Network(container, data, options);
+            network.fit();
         }
 
-        function drawMockGraph3D() {
-            var graphData = {
-                nodes: [
-                    { id: 'google.com', name: 'google.com', group: 'domain', color: { border: '#00ff41' } },
-                    { id: '142.250.190.46', name: '142.250.190.46', group: 'ip', color: { border: '#00f3ff' } },
-                    { id: 'admin@google.com', name: 'admin@google.com', group: 'email', color: { border: '#ff5f56' } }
-                ],
-                links: [
-                    { source: 'google.com', target: '142.250.190.46', label: 'resolves_to' },
-                    { source: 'google.com', target: 'admin@google.com', label: 'has_admin' }
-                ]
-            };
-            drawRealGraph3D(graphData);
+        function drawMockGraph() {
+            const nodes = new vis.DataSet([
+                { id: 'google.com', label: 'google.com', group: 'domain', color: { background: '#161b22', border: '#00ff41' } },
+                { id: '142.250.190.46', label: '142.250.190.46', group: 'ip', color: { background: '#161b22', border: '#00f3ff' } },
+                { id: 'admin@google.com', label: 'admin@google.com', group: 'email', color: { background: '#161b22', border: '#ff5f56' } }
+            ]);
+            const edges = new vis.DataSet([
+                { from: 'google.com', to: '142.250.190.46', label: 'resolves_to' },
+                { from: 'google.com', to: 'admin@google.com', label: 'has_admin' }
+            ]);
+            drawGraph(nodes, edges);
         }
 
         function selectAction(action) {
