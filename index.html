@@ -5,20 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lumina V8</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- 🔥 Graph Library -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
     <style>
         :root { --neon-green: #00ff41; --neon-blue: #00f3ff; --dark-bg: #050505; --panel-bg: rgba(13, 17, 23, 0.85); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background-color: var(--dark-bg); color: var(--neon-green); font-family: 'Courier New', Courier, monospace; overflow: hidden; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        body { background-color: var(--dark-bg); color: var(--neon-green); font-family: 'Courier New', Courier, monospace; overflow-y: auto; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px 0; position: relative; }
+        
         #matrix-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.3; }
         .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2)); background-size: 100% 4px; pointer-events: none; z-index: 10; }
-        .dashboard-container { width: 90%; max-width: 400px; background: var(--panel-bg); border: 1px solid var(--neon-green); border-radius: 12px; padding: 20px; box-shadow: 0 0 20px rgba(0, 255, 65, 0.2); backdrop-filter: blur(10px); z-index: 2; }
+        
+        .dashboard-container { width: 90%; max-width: 400px; background: var(--panel-bg); border: 1px solid var(--neon-green); border-radius: 12px; padding: 20px; box-shadow: 0 0 20px rgba(0, 255, 65, 0.2); backdrop-filter: blur(10px); z-index: 2; margin-bottom: 20px; }
+        
         .glitch { font-size: 28px; font-weight: bold; text-transform: uppercase; text-shadow: 0 0 10px var(--neon-green); color: var(--neon-green); text-align: center; margin-bottom: 5px; letter-spacing: 2px; }
         .subtitle { text-align: center; color: var(--neon-blue); font-size: 12px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px; }
+        
         .btn-group { display: flex; flex-direction: column; gap: 15px; }
         .cyber-btn { background: transparent; border: 1px solid var(--neon-blue); color: var(--neon-blue); padding: 15px; font-size: 14px; font-weight: bold; font-family: inherit; text-transform: uppercase; cursor: pointer; transition: all 0.3s; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
         .cyber-btn:active { background: rgba(0, 243, 255, 0.1); box-shadow: 0 0 15px var(--neon-blue); transform: scale(0.98); }
         
-        /* 🔥 Naya Input Box Terminal ke liye */
         .input-group { margin-top: 15px; display: flex; gap: 10px; }
         .cyber-input { flex: 1; background: #000; border: 1px solid var(--neon-blue); color: var(--neon-green); padding: 10px; font-family: inherit; font-size: 14px; outline: none; }
         .cyber-input::placeholder { color: rgba(0, 243, 255, 0.5); }
@@ -26,33 +32,46 @@
 
         .terminal-window { margin-top: 25px; background: #000; border: 1px solid #333; border-radius: 6px; padding: 10px; height: 100px; overflow-y: auto; font-size: 12px; color: #ccc; }
         .terminal-text { font-family: monospace; white-space: pre-wrap; }
+        
+        /* 🔥 Graph Container */
+        #network-container { display: none; width: 100%; height: 300px; background: #000; border: 1px solid var(--neon-green); border-radius: 6px; margin-top: 20px; }
+        
+        .back-btn { display: none; background: transparent; border: 1px dashed var(--neon-blue); color: var(--neon-blue); margin-top: 10px; width: 100%; padding: 10px; }
     </style>
 </head>
 <body>
     <canvas id="matrix-canvas"></canvas>
     <div class="scanlines"></div>
 
-    <div class="dashboard-container">
+    <div class="dashboard-container" id="main-panel">
         <div class="glitch">LUMINA V8</div>
         <div class="subtitle">Apex Predator Protocol</div>
         
-        <div class="btn-group">
+        <div class="btn-group" id="btn-group">
             <button class="cyber-btn" onclick="selectAction('status')"><span>System Stats</span><span>📊</span></button>
             <button class="cyber-btn" onclick="selectAction('plugins')"><span>Plugin Manager</span><span>🧩</span></button>
+            <button class="cyber-btn" onclick="showGraphPanel()"><span>OSINT Graph</span><span>🕸️</span></button>
         </div>
 
-        <!-- 🔥 Naya Terminal Input Area -->
-        <div class="input-group">
+        <div class="input-group" id="term-group">
             <input type="text" id="terminalInput" class="cyber-input" placeholder="Enter shell command...">
             <button class="send-btn" onclick="sendTerminal()">RUN</button>
         </div>
 
         <div class="terminal-window">
-            <div class="terminal-text" id="output">root@lumina:~# Ready for input...</div>
+            <div class="terminal-text" id="output">root@lumina:~# Ready...</div>
         </div>
     </div>
 
+    <!-- 🔥 OSINT GRAPH UI -->
+    <div class="dashboard-container" id="graph-panel" style="display: none;">
+        <div class="glitch" style="font-size: 20px;">OSINT NETWORK</div>
+        <div id="network-container"></div>
+        <button class="back-btn" onclick="hideGraphPanel()">⬅ BACK TO MENU</button>
+    </div>
+
     <script>
+        // Matrix Rain
         const canvas = document.getElementById('matrix-canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
@@ -74,7 +93,45 @@
         let tg = window.Telegram.WebApp;
         tg.expand(); tg.ready();
         let selectedAction = null;
+        let network = null;
 
+        // UI Navigation
+        function showGraphPanel() {
+            document.getElementById('main-panel').style.display = 'none';
+            document.getElementById('graph-panel').style.display = 'block';
+            drawMockGraph(); // Render graph
+        }
+        function hideGraphPanel() {
+            document.getElementById('main-panel').style.display = 'block';
+            document.getElementById('graph-panel').style.display = 'none';
+        }
+
+        // Render Graph
+        function drawMockGraph() {
+            var container = document.getElementById('network-container');
+            
+            // Nodes aur Edges (Abhi ke liye mockup, baad me bot se aayega)
+            var nodes = new vis.DataSet([
+                { id: 1, label: 'google.com', group: 'domain', color: { background: '#161b22', border: '#00ff41' }, font: { color: '#00ff41' } },
+                { id: 2, label: '142.250.190.46', group: 'ip', color: { background: '#161b22', border: '#00f3ff' }, font: { color: '#00f3ff' } },
+                { id: 3, label: 'admin@google.com', group: 'email', color: { background: '#161b22', border: '#ff5f56' }, font: { color: '#ff5f56' } }
+            ]);
+            var edges = new vis.DataSet([
+                { from: 1, to: 2, label: 'resolves_to', color: '#8b949e', font: { color: '#8b949e' } },
+                { from: 1, to: 3, label: 'has_admin', color: '#8b949e', font: { color: '#8b949e' } }
+            ]);
+            var data = { nodes: nodes, edges: edges };
+            var options = {
+                physics: { enabled: true },
+                edges: { arrows: 'to' }
+            };
+            
+            // Destroy old network to prevent duplicates
+            if(network) network.destroy();
+            network = new vis.Network(container, data, options);
+        }
+
+        // Telegram Actions
         function selectAction(action) {
             selectedAction = action;
             let out = document.getElementById('output');
@@ -83,19 +140,14 @@
             tg.MainButton.show();
         }
 
-        // 🔥 Terminal Command Send
         function sendTerminal() {
             let cmd = document.getElementById('terminalInput').value;
             if (!cmd) return;
-            
             let out = document.getElementById('output');
             out.innerHTML = "> Sending command: " + cmd + "...";
-            
             tg.MainButton.setText("SEND COMMAND");
             tg.MainButton.show();
-            
             selectedAction = "terminal";
-            
             tg.MainButton.onClick(function() {
                 tg.sendData(JSON.stringify({ action: "terminal", cmd: cmd }));
                 setTimeout(() => { tg.close(); }, 500);
