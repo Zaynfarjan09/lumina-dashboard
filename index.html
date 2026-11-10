@@ -34,7 +34,7 @@
         .terminal-text { font-family: monospace; white-space: pre-wrap; }
         
         /* 🔥 Graph Container */
-        #network-container { display: block; width: 100%; height: 300px; background: #000; border: 1px solid var(--neon-green); border-radius: 6px; margin-top: 20px; }
+        #network-container { display: block; width: 100%; height: 350px; background: #000; border: 1px solid var(--neon-green); border-radius: 6px; margin-top: 20px; }
         
         .back-btn { display: block; background: transparent; border: 1px dashed var(--neon-blue); color: var(--neon-blue); margin-top: 10px; width: 100%; padding: 10px; cursor: pointer; font-family: inherit;}
         .back-btn:active { background: rgba(0, 243, 255, 0.1); }
@@ -102,7 +102,7 @@
             document.getElementById('main-panel').style.display = 'none';
             document.getElementById('graph-panel').style.display = 'block';
             
-            // 🔥 FIX: Canvas ko render hone ka time do
+            // Canvas ko render hone ka time do
             setTimeout(() => {
                 drawMockGraph(); 
             }, 150);
@@ -117,7 +117,7 @@
         function drawMockGraph() {
             var container = document.getElementById('network-container');
             
-            // Nodes aur Edges (Mockup Data)
+            // Nodes aur Edges (Mockup Data for testing layout)
             var nodes = new vis.DataSet([
                 { id: 1, label: 'google.com', group: 'domain', color: { background: '#161b22', border: '#00ff41' }, font: { color: '#00ff41' } },
                 { id: 2, label: '142.250.190.46', group: 'ip', color: { background: '#161b22', border: '#00f3ff' }, font: { color: '#00f3ff' } },
@@ -129,16 +129,40 @@
             ]);
             
             var data = { nodes: nodes, edges: edges };
+            
+            // 🔥 FIX: Node Spacing & Layout
             var options = {
-                physics: { enabled: true, stabilization: { iterations: 100 } },
-                edges: { arrows: 'to', smooth: true }
+                nodes: {
+                    shape: 'dot',
+                    size: 15,
+                    font: { size: 14, color: '#ffffff', face: 'monospace' },
+                    borderWidth: 2,
+                    shadow: true
+                },
+                edges: {
+                    arrows: { to: { enabled: true, scaleFactor: 1 } },
+                    color: { color: '#00f3ff', highlight: '#00ff41' },
+                    font: { size: 10, color: '#8b949e', align: 'middle' },
+                    width: 1.5,
+                    smooth: { type: 'continuous' }
+                },
+                physics: {
+                    barnesHut: {
+                        gravitationalConstant: -3000, // Nodes ko door dhakelta hai
+                        centralGravity: 0.1,
+                        springLength: 150, // Lines ki lambai badhata hai
+                        springConstant: 0.04
+                    },
+                    stabilization: { iterations: 200 }
+                },
+                interaction: { hover: true, tooltipDelay: 200 }
             };
             
             // Destroy old network to prevent duplicates
             if(network) network.destroy();
             network = new vis.Network(container, data, options);
             
-            // 🔥 FIX: Graph ko screen pe fit karo
+            // Graph ko screen pe center fit karo
             network.fit();
         }
 
