@@ -80,12 +80,41 @@
             document.getElementById('graph-panel').style.display = 'block';
             const urlParams = new URLSearchParams(window.location.search);
             const target = urlParams.get('target');
+            const b64Data = urlParams.get('data');
             if(target) document.getElementById('graph-title').innerText = `OSINT: ${target}`;
-            setTimeout(() => { drawMockGraph(); }, 150);
+            setTimeout(() => { 
+                if (b64Data) {
+                    try {
+                        const jsonStr = decodeURIComponent(escape(window.atob(b64Data)));
+                        const graphData = JSON.parse(jsonStr);
+                        drawRealGraph(graphData);
+                    } catch(e) {
+                        console.error("Failed to parse graph data", e);
+                        drawMockGraph(); 
+                    }
+                } else {
+                    drawMockGraph();
+                }
+            }, 150);
         }
         function hideGraphPanel() {
             document.getElementById('main-panel').style.display = 'block';
             document.getElementById('graph-panel').style.display = 'none';
+        }
+        function drawRealGraph(graphData) {
+            var container = document.getElementById('network-container');
+            var nodes = new vis.DataSet(graphData.nodes);
+            var edges = new vis.DataSet(graphData.edges);
+            var data = { nodes: nodes, edges: edges };
+            var options = {
+                nodes: { shape: 'dot', size: 15, font: { size: 14, color: '#ffffff', face: 'monospace' }, borderWidth: 2, shadow: true },
+                edges: { arrows: { to: { enabled: true, scaleFactor: 1 } }, color: { color: '#00f3ff', highlight: '#00ff41' }, font: { size: 10, color: '#8b949e', align: 'middle' }, width: 1.5, smooth: { type: 'continuous' } },
+                physics: { barnesHut: { gravitationalConstant: -3000, centralGravity: 0.1, springLength: 150, springConstant: 0.04 }, stabilization: { iterations: 200 } },
+                interaction: { hover: true, tooltipDelay: 200 }
+            };
+            if(network) network.destroy();
+            network = new vis.Network(container, data, options);
+            network.fit();
         }
         function drawMockGraph() {
             var container = document.getElementById('network-container');
