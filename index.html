@@ -34,9 +34,10 @@
         .terminal-text { font-family: monospace; white-space: pre-wrap; }
         
         /* 🔥 Graph Container */
-        #network-container { display: none; width: 100%; height: 300px; background: #000; border: 1px solid var(--neon-green); border-radius: 6px; margin-top: 20px; }
+        #network-container { display: block; width: 100%; height: 300px; background: #000; border: 1px solid var(--neon-green); border-radius: 6px; margin-top: 20px; }
         
-        .back-btn { display: none; background: transparent; border: 1px dashed var(--neon-blue); color: var(--neon-blue); margin-top: 10px; width: 100%; padding: 10px; }
+        .back-btn { display: block; background: transparent; border: 1px dashed var(--neon-blue); color: var(--neon-blue); margin-top: 10px; width: 100%; padding: 10px; cursor: pointer; font-family: inherit;}
+        .back-btn:active { background: rgba(0, 243, 255, 0.1); }
     </style>
 </head>
 <body>
@@ -71,13 +72,14 @@
     </div>
 
     <script>
-        // Matrix Rain
+        // Matrix Rain Effect
         const canvas = document.getElementById('matrix-canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*';
         const fontSize = 16; const columns = canvas.width / fontSize; const drops = [];
         for (let x = 0; x < columns; x++) drops[x] = 1;
+        
         function drawMatrix() {
             ctx.fillStyle = 'rgba(5, 5, 5, 0.05)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#00ff41'; ctx.font = fontSize + 'px monospace';
@@ -99,8 +101,13 @@
         function showGraphPanel() {
             document.getElementById('main-panel').style.display = 'none';
             document.getElementById('graph-panel').style.display = 'block';
-            drawMockGraph(); // Render graph
+            
+            // 🔥 FIX: Canvas ko render hone ka time do
+            setTimeout(() => {
+                drawMockGraph(); 
+            }, 150);
         }
+        
         function hideGraphPanel() {
             document.getElementById('main-panel').style.display = 'block';
             document.getElementById('graph-panel').style.display = 'none';
@@ -110,25 +117,29 @@
         function drawMockGraph() {
             var container = document.getElementById('network-container');
             
-            // Nodes aur Edges (Abhi ke liye mockup, baad me bot se aayega)
+            // Nodes aur Edges (Mockup Data)
             var nodes = new vis.DataSet([
                 { id: 1, label: 'google.com', group: 'domain', color: { background: '#161b22', border: '#00ff41' }, font: { color: '#00ff41' } },
                 { id: 2, label: '142.250.190.46', group: 'ip', color: { background: '#161b22', border: '#00f3ff' }, font: { color: '#00f3ff' } },
                 { id: 3, label: 'admin@google.com', group: 'email', color: { background: '#161b22', border: '#ff5f56' }, font: { color: '#ff5f56' } }
             ]);
             var edges = new vis.DataSet([
-                { from: 1, to: 2, label: 'resolves_to', color: '#8b949e', font: { color: '#8b949e' } },
-                { from: 1, to: 3, label: 'has_admin', color: '#8b949e', font: { color: '#8b949e' } }
+                { from: 1, to: 2, label: 'resolves_to', color: '#8b949e', font: { color: '#8b949e', size: 10 } },
+                { from: 1, to: 3, label: 'has_admin', color: '#8b949e', font: { color: '#8b949e', size: 10 } }
             ]);
+            
             var data = { nodes: nodes, edges: edges };
             var options = {
-                physics: { enabled: true },
-                edges: { arrows: 'to' }
+                physics: { enabled: true, stabilization: { iterations: 100 } },
+                edges: { arrows: 'to', smooth: true }
             };
             
             // Destroy old network to prevent duplicates
             if(network) network.destroy();
             network = new vis.Network(container, data, options);
+            
+            // 🔥 FIX: Graph ko screen pe fit karo
+            network.fit();
         }
 
         // Telegram Actions
