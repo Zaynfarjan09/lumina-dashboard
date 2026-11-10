@@ -50,7 +50,7 @@
         #network-container { width: 100%; height: 100%; position: relative; z-index: 2; }
         .back-btn { display: block; background: transparent; border: 1px dashed var(--neon-blue); color: var(--neon-blue); margin-top: 15px; width: 100%; padding: 10px; cursor: pointer; font-family: inherit;}
         
-        .loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--neon-green); font-size: 18px; z-index: 5; animation: pulse 1.5s infinite; }
+        .loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--neon-green); font-size: 18px; z-index: 5; animation: pulse 1.5s infinite; text-align: center;}
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
     </style>
 </head>
@@ -111,6 +111,7 @@
             document.getElementById('main-panel').style.display = 'none';
             document.getElementById('graph-panel').style.display = 'block';
             document.getElementById('loading-text').style.display = 'block';
+            document.getElementById('loading-text').innerText = "DECRYPTING DATA...";
             
             const urlParams = new URLSearchParams(window.location.search);
             const target = urlParams.get('target');
@@ -119,7 +120,9 @@
             if(target) document.getElementById('graph-title').innerText = `TARGET: ${target}`;
             
             if (b64Data) {
+                let graphData = null;
                 try {
+                    // 🚨 TRY ZLIB DECOMPRESS 🚨
                     const binaryString = atob(b64Data.replace(/-/g, '+').replace(/_/g, '/'));
                     const bytes = new Uint8Array(binaryString.length);
                     for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
@@ -127,13 +130,21 @@
                     const ds = new DecompressionStream('deflate');
                     const decompressedStream = new Blob([bytes]).stream().pipeThrough(ds);
                     const text = await new Response(decompressedStream).text();
-                    const graphData = JSON.parse(text);
-                    
-                    document.getElementById('loading-text').style.display = 'none';
-                    drawGraph(graphData);
-                } catch(e) { 
-                    document.getElementById('loading-text').innerText = "DECRYPTION FAILED";
+                    graphData = JSON.parse(text);
+                } catch(e) {
+                    console.log("Zlib failed, trying raw Base64...", e);
+                    try {
+                        // 🚨 FALLBACK: TRY NORMAL BASE64 🚨
+                        const jsonStr = decodeURIComponent(escape(window.atob(b64Data)));
+                        graphData = JSON.parse(jsonStr);
+                    } catch(e2) {
+                        document.getElementById('loading-text').innerText = "DECRYPTION FAILED";
+                        return;
+                    }
                 }
+                
+                document.getElementById('loading-text').style.display = 'none';
+                drawGraph(graphData);
             } else { 
                 document.getElementById('loading-text').innerText = "NO DATA FOUND";
             }
