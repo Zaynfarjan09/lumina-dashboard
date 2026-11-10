@@ -5,31 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lumina V8</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Vis.js for 2D Reliable Graph -->
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
         :root { --neon-green: #00ff41; --neon-blue: #00f3ff; --dark-bg: #050505; --panel-bg: rgba(13, 17, 23, 0.85); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background-color: var(--dark-bg); color: var(--neon-green); font-family: 'Courier New', Courier, monospace; overflow-y: auto; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px 0; position: relative; }
-        #matrix-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.3; }
+        body { background-color: var(--dark-bg); color: var(--neon-green); font-family: 'Courier New', Courier, monospace; overflow-y: auto; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px 0; position: relative; perspective: 1000px;}
+        #matrix-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; opacity: 0.2; }
         .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2)); background-size: 100% 4px; pointer-events: none; z-index: 10; }
+        
         .dashboard-container { width: 90%; max-width: 400px; background: var(--panel-bg); border: 1px solid var(--neon-green); border-radius: 12px; padding: 20px; box-shadow: 0 0 20px rgba(0, 255, 65, 0.2); backdrop-filter: blur(10px); z-index: 2; margin-bottom: 20px; }
         .glitch { font-size: 28px; font-weight: bold; text-transform: uppercase; text-shadow: 0 0 10px var(--neon-green); color: var(--neon-green); text-align: center; margin-bottom: 5px; letter-spacing: 2px; }
         .subtitle { text-align: center; color: var(--neon-blue); font-size: 12px; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px; }
+        
         .btn-group { display: flex; flex-direction: column; gap: 15px; }
         .cyber-btn { background: transparent; border: 1px solid var(--neon-blue); color: var(--neon-blue); padding: 15px; font-size: 14px; font-weight: bold; font-family: inherit; text-transform: uppercase; cursor: pointer; transition: all 0.3s; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
         .cyber-btn:active { background: rgba(0, 243, 255, 0.1); box-shadow: 0 0 15px var(--neon-blue); transform: scale(0.98); }
+        
         .input-group { margin-top: 15px; display: flex; gap: 10px; }
         .cyber-input { flex: 1; background: #000; border: 1px solid var(--neon-blue); color: var(--neon-green); padding: 10px; font-family: inherit; font-size: 14px; outline: none; }
         .cyber-input::placeholder { color: rgba(0, 243, 255, 0.5); }
         .send-btn { background: var(--neon-blue); color: #000; border: none; padding: 10px 15px; font-weight: bold; cursor: pointer; }
+
         .terminal-window { margin-top: 25px; background: #000; border: 1px solid #333; border-radius: 6px; padding: 10px; height: 100px; overflow-y: auto; font-size: 12px; color: #ccc; }
         .terminal-text { font-family: monospace; white-space: pre-wrap; }
         
-        /* 8D Cyberpunk Graph Container */
-        #network-container { display: block; width: 100%; height: 400px; background: radial-gradient(circle at center, #0a1c0e 0%, #000000 100%); border: 1px solid var(--neon-green); border-radius: 6px; margin-top: 20px; box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.2); }
-        .back-btn { display: block; background: transparent; border: 1px dashed var(--neon-blue); color: var(--neon-blue); margin-top: 10px; width: 100%; padding: 10px; cursor: pointer; font-family: inherit;}
-        .back-btn:active { background: rgba(0, 243, 255, 0.1); }
+        /* 🔥 8D 3D-Looking Graph Container */
+        .graph-wrapper {
+            width: 100%; height: 400px; margin-top: 20px;
+            background: radial-gradient(circle at center, #061206 0%, #000 100%);
+            border: 1px solid var(--neon-green); border-radius: 6px;
+            box-shadow: inset 0 0 30px rgba(0, 255, 65, 0.1);
+            position: relative; overflow: hidden;
+            transform: rotateX(15deg) rotateY(-5deg) scale(1.02); /* 3D Tilt */
+            transform-style: preserve-3d;
+        }
+        
+        /* Radar Sweep Effect */
+        .radar-sweep {
+            position: absolute; top: 50%; left: 50%; width: 200%; height: 200%;
+            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0, 255, 65, 0.1) 360deg);
+            border-radius: 50%; transform: translate(-50%, -50%);
+            animation: spin 4s linear infinite; pointer-events: none; z-index: 1;
+        }
+        @keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+        
+        #network-container { width: 100%; height: 100%; position: relative; z-index: 2; }
+        .back-btn { display: block; background: transparent; border: 1px dashed var(--neon-blue); color: var(--neon-blue); margin-top: 15px; width: 100%; padding: 10px; cursor: pointer; font-family: inherit;}
     </style>
 </head>
 <body>
@@ -51,11 +72,18 @@
             <div class="terminal-text" id="output">root@lumina:~# Ready...</div>
         </div>
     </div>
+    
     <div class="dashboard-container" id="graph-panel" style="display: none;">
-        <div class="glitch" style="font-size: 20px;" id="graph-title">OSINT NETWORK</div>
-        <div id="network-container"></div>
+        <div class="glitch" style="font-size: 18px; margin-bottom: 15px;" id="graph-title">OSINT NETWORK</div>
+        
+        <div class="graph-wrapper">
+            <div class="radar-sweep"></div>
+            <div id="network-container"></div>
+        </div>
+        
         <button class="back-btn" onclick="hideGraphPanel()">⬅ BACK TO MENU</button>
     </div>
+    
     <script>
         const canvas = document.getElementById('matrix-canvas');
         const ctx = canvas.getContext('2d');
@@ -77,22 +105,19 @@
         
         let tg = window.Telegram.WebApp;
         tg.expand(); tg.ready();
-        let selectedAction = null;
         let network = null;
 
         async function showGraphPanel() {
             document.getElementById('main-panel').style.display = 'none';
             document.getElementById('graph-panel').style.display = 'block';
-            
             const urlParams = new URLSearchParams(window.location.search);
             const target = urlParams.get('target');
             const b64Data = urlParams.get('data');
             
-            if(target) document.getElementById('graph-title').innerText = `OSINT: ${target}`;
+            if(target) document.getElementById('graph-title').innerText = `TARGET: ${target}`;
             
             if (b64Data) {
                 try {
-                    // Zlib Decompress
                     const binaryString = atob(b64Data.replace(/-/g, '+').replace(/_/g, '/'));
                     const bytes = new Uint8Array(binaryString.length);
                     for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
@@ -102,13 +127,9 @@
                     const text = await new Response(decompressedStream).text();
                     const graphData = JSON.parse(text);
                     
-                    // Format for Vis.js
-                    const nodes = new vis.DataSet(graphData.nodes);
-                    const edges = new vis.DataSet(graphData.edges);
-                    drawGraph(nodes, edges);
+                    drawGraph(graphData);
                 } catch(e) {
-                    console.error("Decompress failed", e);
-                    drawMockGraph(); 
+                    drawMockGraph();
                 }
             } else {
                 drawMockGraph();
@@ -120,53 +141,54 @@
             document.getElementById('graph-panel').style.display = 'none';
         }
 
-        function drawGraph(nodesData, edgesData) {
+        function drawGraph(data) {
             var container = document.getElementById('network-container');
-            var data = { nodes: nodesData, edges: edgesData };
+            var nodesData = new vis.DataSet(data.nodes);
+            var edgesData = new vis.DataSet(data.edges.map(e => ({...e, smooth: {type: 'curvedCW', roundness: 0.4}})));
             
-            // 🔥 8D CYBERPUNK STYLING
             var options = {
                 nodes: {
                     shape: 'dot',
-                    size: 18,
-                    font: { size: 12, color: '#ffffff', face: 'monospace', strokeWidth: 2, strokeColor: '#000000' },
-                    borderWidth: 3,
-                    shadow: { enabled: true, color: 'rgba(0, 255, 65, 0.8)', size: 15, x: 0, y: 0 }
+                    font: { size: 12, color: '#fff', face: 'monospace', strokeWidth: 3, strokeColor: '#000' },
+                    borderWidth: 4,
+                    shadow: { enabled: true, color: 'rgba(0, 255, 65, 0.8)', size: 20, x: 0, y: 0 } // Glowing Nodes
                 },
                 edges: {
-                    arrows: { to: { enabled: true, scaleFactor: 1.2 } },
-                    color: { color: 'rgba(0, 243, 255, 0.6)', highlight: '#00ff41' },
-                    font: { size: 10, color: '#00ff41', face: 'monospace', align: 'middle', background: '#000' },
-                    width: 2,
-                    smooth: { type: 'curvedCW', roundness: 0.3 } // 3D curved look
+                    arrows: { to: { enabled: true, scaleFactor: 1.5 } },
+                    color: { color: 'rgba(0, 243, 255, 0.4)', highlight: '#00ff41' },
+                    width: 1.5,
+                    selectionWidth: 2,
+                    shadow: { enabled: true, color: 'rgba(0, 243, 255, 0.5)', size: 10 }
                 },
                 physics: {
-                    barnesHut: { gravitationalConstant: -4000, centralGravity: 0.2, springLength: 200, springConstant: 0.05 },
-                    stabilization: { iterations: 200 }
+                    enabled: true,
+                    barnesHut: { gravitationalConstant: -5000, centralGravity: 0.1, springLength: 180, springConstant: 0.04, damping: 0.09 },
+                    stabilization: { iterations: 100 }
                 },
-                interaction: { hover: true, tooltipDelay: 200 }
+                interaction: { hover: true }
             };
             
             if(network) network.destroy();
-            network = new vis.Network(container, data, options);
+            network = new vis.Network(container, {nodes: nodesData, edges: edgesData}, options);
             network.fit();
         }
 
         function drawMockGraph() {
-            const nodes = new vis.DataSet([
-                { id: 'google.com', label: 'google.com', group: 'domain', color: { background: '#161b22', border: '#00ff41' } },
-                { id: '142.250.190.46', label: '142.250.190.46', group: 'ip', color: { background: '#161b22', border: '#00f3ff' } },
-                { id: 'admin@google.com', label: 'admin@google.com', group: 'email', color: { background: '#161b22', border: '#ff5f56' } }
-            ]);
-            const edges = new vis.DataSet([
-                { from: 'google.com', to: '142.250.190.46', label: 'resolves_to' },
-                { from: 'google.com', to: 'admin@google.com', label: 'has_admin' }
-            ]);
-            drawGraph(nodes, edges);
+            const mock = {
+                nodes: [
+                    { id: 'google.com', label: 'google.com', group: 'domain', color: { border: '#00ff41' }, size: 25 },
+                    { id: '142.250.190.46', label: '142.250.190.46\n(USA)', group: 'ip', color: { border: '#00f3ff' }, size: 20 },
+                    { id: 'geo_USA', label: '📍 USA', group: 'geo', color: { border: '#ff5f56' }, size: 18 }
+                ],
+                edges: [
+                    { from: 'google.com', to: '142.250.190.46', label: 'resolves' },
+                    { from: '142.250.190.46', to: 'geo_USA', label: 'located' }
+                ]
+            };
+            drawGraph(mock);
         }
 
         function selectAction(action) {
-            selectedAction = action;
             let out = document.getElementById('output');
             out.innerHTML = "> Selected: " + action + "\n> Click CONFIRM below to send.";
             tg.MainButton.setText("CONFIRM " + action.toUpperCase());
@@ -175,19 +197,17 @@
         function sendTerminal() {
             let cmd = document.getElementById('terminalInput').value;
             if (!cmd) return;
-            let out = document.getElementById('output');
-            out.innerHTML = "> Sending command: " + cmd + "...";
             tg.MainButton.setText("SEND COMMAND");
             tg.MainButton.show();
-            selectedAction = "terminal";
             tg.MainButton.onClick(function() {
                 tg.sendData(JSON.stringify({ action: "terminal", cmd: cmd }));
                 setTimeout(() => { tg.close(); }, 500);
             });
         }
         tg.MainButton.onClick(function() {
-            if (selectedAction && selectedAction !== "terminal") {
-                tg.sendData(JSON.stringify({ action: selectedAction }));
+            if (tg.MainButton.text.includes("CONFIRM")) {
+                let action = tg.MainButton.text.replace("CONFIRM ", "").toLowerCase();
+                tg.sendData(JSON.stringify({ action: action }));
                 setTimeout(() => { tg.close(); }, 500);
             }
         });
