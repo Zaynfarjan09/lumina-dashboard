@@ -29,21 +29,19 @@
         .terminal-window { margin-top: 25px; background: #000; border: 1px solid #333; border-radius: 6px; padding: 10px; height: 100px; overflow-y: auto; font-size: 12px; color: #ccc; }
         .terminal-text { font-family: monospace; white-space: pre-wrap; }
         
-        /* 🔥 8D 3D-Looking Graph Container */
         .graph-wrapper {
-            width: 100%; height: 400px; margin-top: 20px;
+            width: 100%; height: 420px; margin-top: 20px;
             background: radial-gradient(circle at center, #061206 0%, #000 100%);
             border: 1px solid var(--neon-green); border-radius: 6px;
             box-shadow: inset 0 0 30px rgba(0, 255, 65, 0.1);
             position: relative; overflow: hidden;
-            transform: rotateX(15deg) rotateY(-5deg) scale(1.02); /* 3D Tilt */
+            transform: rotateX(10deg) rotateY(-5deg) scale(1.02); 
             transform-style: preserve-3d;
         }
         
-        /* Radar Sweep Effect */
         .radar-sweep {
             position: absolute; top: 50%; left: 50%; width: 200%; height: 200%;
-            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0, 255, 65, 0.1) 360deg);
+            background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, rgba(0, 255, 65, 0.15) 360deg);
             border-radius: 50%; transform: translate(-50%, -50%);
             animation: spin 4s linear infinite; pointer-events: none; z-index: 1;
         }
@@ -51,6 +49,9 @@
         
         #network-container { width: 100%; height: 100%; position: relative; z-index: 2; }
         .back-btn { display: block; background: transparent; border: 1px dashed var(--neon-blue); color: var(--neon-blue); margin-top: 15px; width: 100%; padding: 10px; cursor: pointer; font-family: inherit;}
+        
+        .loading-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--neon-green); font-size: 18px; z-index: 5; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
     </style>
 </head>
 <body>
@@ -75,12 +76,11 @@
     
     <div class="dashboard-container" id="graph-panel" style="display: none;">
         <div class="glitch" style="font-size: 18px; margin-bottom: 15px;" id="graph-title">OSINT NETWORK</div>
-        
         <div class="graph-wrapper">
+            <div class="loading-text" id="loading-text">DECRYPTING DATA...</div>
             <div class="radar-sweep"></div>
             <div id="network-container"></div>
         </div>
-        
         <button class="back-btn" onclick="hideGraphPanel()">⬅ BACK TO MENU</button>
     </div>
     
@@ -110,6 +110,8 @@
         async function showGraphPanel() {
             document.getElementById('main-panel').style.display = 'none';
             document.getElementById('graph-panel').style.display = 'block';
+            document.getElementById('loading-text').style.display = 'block';
+            
             const urlParams = new URLSearchParams(window.location.search);
             const target = urlParams.get('target');
             const b64Data = urlParams.get('data');
@@ -127,12 +129,13 @@
                     const text = await new Response(decompressedStream).text();
                     const graphData = JSON.parse(text);
                     
+                    document.getElementById('loading-text').style.display = 'none';
                     drawGraph(graphData);
-                } catch(e) {
-                    drawMockGraph();
+                } catch(e) { 
+                    document.getElementById('loading-text').innerText = "DECRYPTION FAILED";
                 }
-            } else {
-                drawMockGraph();
+            } else { 
+                document.getElementById('loading-text').innerText = "NO DATA FOUND";
             }
         }
 
@@ -144,48 +147,46 @@
         function drawGraph(data) {
             var container = document.getElementById('network-container');
             var nodesData = new vis.DataSet(data.nodes);
-            var edgesData = new vis.DataSet(data.edges.map(e => ({...e, smooth: {type: 'curvedCW', roundness: 0.4}})));
+            var edgesData = new vis.DataSet(data.edges.map(e => ({...e, smooth: {type: 'curvedCW', roundness: 0.3}})));
             
             var options = {
                 nodes: {
                     shape: 'dot',
-                    font: { size: 12, color: '#fff', face: 'monospace', strokeWidth: 3, strokeColor: '#000' },
-                    borderWidth: 4,
-                    shadow: { enabled: true, color: 'rgba(0, 255, 65, 0.8)', size: 20, x: 0, y: 0 } // Glowing Nodes
+                    font: { size: 12, color: '#fff', face: 'monospace', strokeWidth: 3, strokeColor: '#000', vadjust: 2 },
+                    borderWidth: 3,
+                    shadow: { enabled: true, color: 'rgba(0, 255, 65, 0.8)', size: 20, x: 0, y: 0 }
                 },
                 edges: {
-                    arrows: { to: { enabled: true, scaleFactor: 1.5 } },
+                    arrows: { to: { enabled: true, scaleFactor: 1.2 } },
                     color: { color: 'rgba(0, 243, 255, 0.4)', highlight: '#00ff41' },
+                    font: { size: 10, color: '#00ff41', face: 'monospace', align: 'middle', background: 'rgba(0,0,0,0.8)' },
                     width: 1.5,
-                    selectionWidth: 2,
                     shadow: { enabled: true, color: 'rgba(0, 243, 255, 0.5)', size: 10 }
                 },
                 physics: {
                     enabled: true,
-                    barnesHut: { gravitationalConstant: -5000, centralGravity: 0.1, springLength: 180, springConstant: 0.04, damping: 0.09 },
-                    stabilization: { iterations: 100 }
-                },
-                interaction: { hover: true }
+                    forceAtlas2Based: { gravitationalConstant: -100, centralGravity: 0.01, springLength: 150, springConstant: 0.08, damping: 0.4 },
+                    stabilization: { iterations: 150 }
+                }
             };
             
             if(network) network.destroy();
             network = new vis.Network(container, {nodes: nodesData, edges: edgesData}, options);
             network.fit();
-        }
-
-        function drawMockGraph() {
-            const mock = {
-                nodes: [
-                    { id: 'google.com', label: 'google.com', group: 'domain', color: { border: '#00ff41' }, size: 25 },
-                    { id: '142.250.190.46', label: '142.250.190.46\n(USA)', group: 'ip', color: { border: '#00f3ff' }, size: 20 },
-                    { id: 'geo_USA', label: '📍 USA', group: 'geo', color: { border: '#ff5f56' }, size: 18 }
-                ],
-                edges: [
-                    { from: 'google.com', to: '142.250.190.46', label: 'resolves' },
-                    { from: '142.250.190.46', to: 'geo_USA', label: 'located' }
-                ]
-            };
-            drawGraph(mock);
+            
+            network.on("click", function (params) {
+                if (params.nodes.length > 0) {
+                    let nodeId = params.nodes[0];
+                    let node = nodesData.get(nodeId);
+                    if(node && node.title) {
+                        tg.showPopup({
+                            title: "SYSTEM DATA",
+                            message: node.title,
+                            buttons: [{type: "close"}]
+                        });
+                    }
+                }
+            });
         }
 
         function selectAction(action) {
